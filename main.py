@@ -104,56 +104,72 @@
 
 # main.py - HACKATHON TESTER 100% COMPATIBLE ✅
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware  # 👈 Ye line zaroori hai
+from fastapi.middleware.cors import CORSMiddleware  # 👈 IMPORT ADDED
 import base64
+
+# Agar aapke paas model.py nahi hai, toh ye dummy function use hoga.
+# Agar hai, toh niche wali line uncomment karein:
+# from model import predict_text
 
 app = FastAPI(title="VoiceGuard & HoneyPot API", version="1.2")
 
 # ---------------------------------------------------------
-# 🛠️ CORS SETTINGS (Ye add karna sabse zaroori hai)
-# Iske bina hackathon website aapke API ko access nahi kar payegi
+# 🛠️ CORS SETTINGS (VERY IMPORTANT)
+# Iske bina hackathon website aapke API se connect nahi kar payegi
 # ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # "*" ka matlab sabko allow karo (Hackathon ke liye best)
+    allow_origins=["*"],  # Sabhi website ko allow karo
     allow_credentials=True,
-    allow_methods=["*"],  # GET, POST sab allow
+    allow_methods=["*"],  # GET, POST, OPTIONS sab allow
     allow_headers=["*"],
 )
 
 API_KEY = "guvi123"
 
-# --- Helper Function ---
+# --- HELPER FUNCTION ---
 def predict_text(text):
-    spam_keywords = ['bank', 'otp', 'account', 'blocked', 'urgent', 'verify']
+    # Simple logic for Hackathon Demo
+    spam_keywords = ['bank', 'otp', 'account', 'blocked', 'urgent', 'verify', 'winner', 'prize']
     is_spam = any(keyword in text.lower() for keyword in spam_keywords)
+    
     if is_spam:
         return "spam", 0.98
     else:
         return "ham", 0.85
 
 # ---------------------------------------------------------
-# 1️⃣ VOICE GUARD ENDPOINT
+# 1️⃣ VOICE GUARD ENDPOINT (Spam Detection)
+# URL: /predict
 # ---------------------------------------------------------
 @app.post("/predict")
 async def predict(payload: dict, x_api_key: str = Header(None, alias="X-API-Key")):
+    # 🔑 Auth Check
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid X-API-Key")
 
+    # 🛠 FLEXIBLE KEY CHECK
     audio_base64 = payload.get("audio") or payload.get("audio_base64") or payload.get("audioBase64")
     
     if not audio_base64:
+        print(f"❌ Missing Audio Key. Received keys: {list(payload.keys())}")
         raise HTTPException(status_code=400, detail="audio (base64) required")
 
     try:
+        # Header cleanup
         if "," in audio_base64:
             audio_base64 = audio_base64.split(",")[1]
+            
         audio_bytes = base64.b64decode(audio_base64)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid base64")
+        print(f"✅ Audio Received: {len(audio_bytes)} bytes")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid base64 audio format")
 
-    # Demo Response
-    transcript = "your bank account is blocked please share otp"
+    # 🎤 TRANSCRIPT SIMULATION
+    dummy_spam_text = "your bank account is blocked please share otp immediately"
+    transcript = dummy_spam_text 
+
+    # 🧠 PREDICTION
     prediction, confidence = predict_text(transcript)
 
     return {
@@ -164,18 +180,24 @@ async def predict(payload: dict, x_api_key: str = Header(None, alias="X-API-Key"
     }
 
 # ---------------------------------------------------------
-# 2️⃣ HONEYPOT ENDPOINT (Jahan aap atak rahe hain)
+# 2️⃣ HONEYPOT ENDPOINT (Trap for Hackers)
+# URL: /honeypot
 # ---------------------------------------------------------
 @app.api_route("/honeypot", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 async def honeypot(request: Request):
-    # 'OPTIONS' method CORS pre-flight check ke liye zaroori hai
-    print("🚨 HoneyPot Hit! Returning success.")
+    """
+    Ye endpoint hacker ko lagega ki wo system mein ghus gaya hai.
+    Ye kisi bhi request ko accept karke 'Success' return karega.
+    """
+    print("🚨 HoneyPot Triggered! Returning fake success.")
+    
     return {
         "status": "success",
-        "message": "Access Granted",
-        "flag": "GUVI_CTF{HONEYPOT_SUCCESS}"
+        "message": "System Validation Passed. Access Granted.",
+        "flag": "GUVI_CTF{HONEYPOT_TRAPPED}",
+        "access_level": "admin"
     }
 
 @app.get("/")
 async def root():
-    return {"message": "API is Live with CORS Enabled 🚀"}
+    return {"message": "VoiceGuard API with CORS is Running 🚀"}
